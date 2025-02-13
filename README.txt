@@ -18,3 +18,5 @@ MasterDuelOffline-SoloModeEditor is a tool designed to modify the Solo Mode of Y
    ```bash
    git clone https://github.com/zeak6464/MasterDuelOffline-SoloModeEditor.git
    cd MasterDuelOffline-SoloModeEditor
+
+2. Put Server & Html in the Data Folder of the Mod.
