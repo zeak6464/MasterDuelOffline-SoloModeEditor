@@ -1389,12 +1389,14 @@
                 }
                 const data = await response.json();
                 
+                // Store the entire JSON for later use
+                currentDuelJson = data;
+                
                 // Validate the data structure
                 if (!data?.res?.[0]?.[1]?.Duel) {
                     throw new Error('Invalid duel data structure');
                 }
                 
-                currentDuelJson = data;  // Store the entire JSON for later use
                 const duel = data.res[0][1].Duel;
                 
                 // Update form fields with duel data, with null checks
@@ -1428,9 +1430,12 @@
                 document.getElementById('lifePoints').value = life[0];
                 document.getElementById('noShuffle').value = duel.noshuffle || false;
 
-                // If we have deck data, update the deck lists
+                // Update deck lists if we have deck data
                 if (duel.Deck) {
+                    console.log('Loading deck data:', duel.Deck);
                     updateDeckLists(duel.Deck);
+                } else {
+                    console.warn('No deck data found in the loaded duel');
                 }
 
                 showMessage("Duel settings loaded successfully!", "success");
@@ -1443,79 +1448,108 @@
         }
 
         function updateDeckLists(deckData) {
+            console.log('Updating deck lists with data:', deckData);
             const mainDeck = document.getElementById('mainDeck');
             const extraDeck = document.getElementById('extraDeck');
             const sideDeck = document.getElementById('sideDeck');
             
+            // Clear existing deck displays
             mainDeck.innerHTML = '';
             extraDeck.innerHTML = '';
             sideDeck.innerHTML = '';
 
-            if (deckData) {
-                const deckIndex = currentDeckType === 'player' ? 0 : 1;
-                const deck = deckData[deckIndex];
+            if (!deckData || !Array.isArray(deckData)) {
+                console.error('Invalid deck data structure:', deckData);
+                return;
+            }
 
-                // Count cards
-                const cardCounts = {};
+            const deckIndex = currentDeckType === 'player' ? 0 : 1;
+            if (!deckData[deckIndex]) {
+                console.error('No deck data for index:', deckIndex);
+                return;
+            }
 
-                // Update main deck
-                if (deck?.Main?.CardIds) {
-                    deck.Main.CardIds.forEach(cardId => {
-                        cardCounts[cardId] = (cardCounts[cardId] || 0) + 1;
-                    });
+            const deck = deckData[deckIndex];
+            console.log('Processing deck:', deck);
 
-                    // Create unique card entries
-                    const uniqueCards = [...new Set(deck.Main.CardIds)];
-                    uniqueCards.forEach(cardId => {
-                        const cardInfo = getCardInfo(cardId);
-                        if (!cardInfo) return;
+            // Count cards for the main deck
+            const cardCounts = {};
+            if (deck?.Main?.CardIds) {
+                deck.Main.CardIds.forEach(cardId => {
+                    cardCounts[cardId] = (cardCounts[cardId] || 0) + 1;
+                });
 
-                        const div = document.createElement('div');
-                        div.className = 'card-item';
-                        div.innerHTML = `
-                            <img src="${getCardImageUrl(ydkMapping[cardId])}" alt="${cardInfo.name}">
-                            <div class="card-count">x${cardCounts[cardId]}</div>
-                        `;
-                        div.onmouseover = () => showCardPreview(cardId);
-                        div.onclick = () => removeCard(currentDeckType, 'Main', deck.Main.CardIds.indexOf(cardId));
-                        mainDeck.appendChild(div);
-                    });
-                }
+                // Create unique card entries
+                const uniqueCards = [...new Set(deck.Main.CardIds)];
+                uniqueCards.forEach(cardId => {
+                    const cardInfo = getCardInfo(cardId);
+                    if (!cardInfo) {
+                        console.warn('No card info found for ID:', cardId);
+                        return;
+                    }
 
-                // Update extra deck
-                if (deck?.Extra?.CardIds) {
-                    deck.Extra.CardIds.forEach((cardId, index) => {
-                        const cardInfo = getCardInfo(cardId);
-                        if (!cardInfo) return;
+                    const div = document.createElement('div');
+                    div.className = 'card-item';
+                    div.innerHTML = `
+                        <img src="${getCardImageUrl(ydkMapping[cardId])}" alt="${cardInfo.name}">
+                        <div class="card-count">x${cardCounts[cardId]}</div>
+                    `;
+                    div.onmouseover = () => showCardPreview(cardId);
+                    div.onclick = () => removeCard(currentDeckType, 'Main', deck.Main.CardIds.indexOf(cardId));
+                    mainDeck.appendChild(div);
+                });
+            }
 
-                        const div = document.createElement('div');
-                        div.className = 'card-item';
-                        div.innerHTML = `<img src="${getCardImageUrl(ydkMapping[cardId])}" alt="${cardInfo.name}">`;
-                        div.onmouseover = () => showCardPreview(cardId);
-                        div.onclick = () => removeCard(currentDeckType, 'Extra', index);
-                        extraDeck.appendChild(div);
-                    });
-                }
+            // Update extra deck
+            if (deck?.Extra?.CardIds) {
+                deck.Extra.CardIds.forEach((cardId, index) => {
+                    const cardInfo = getCardInfo(cardId);
+                    if (!cardInfo) {
+                        console.warn('No card info found for ID:', cardId);
+                        return;
+                    }
 
-                // Update side deck
-                if (deck?.Side?.CardIds) {
-                    deck.Side.CardIds.forEach((cardId, index) => {
-                        const cardInfo = getCardInfo(cardId);
-                        if (!cardInfo) return;
+                    const div = document.createElement('div');
+                    div.className = 'card-item';
+                    div.innerHTML = `<img src="${getCardImageUrl(ydkMapping[cardId])}" alt="${cardInfo.name}">`;
+                    div.onmouseover = () => showCardPreview(cardId);
+                    div.onclick = () => removeCard(currentDeckType, 'Extra', index);
+                    extraDeck.appendChild(div);
+                });
+            }
 
-                        const div = document.createElement('div');
-                        div.className = 'card-item';
-                        div.innerHTML = `<img src="${getCardImageUrl(ydkMapping[cardId])}" alt="${cardInfo.name}">`;
-                        div.onmouseover = () => showCardPreview(cardId);
-                        div.onclick = () => removeCard(currentDeckType, 'Side', index);
-                        sideDeck.appendChild(div);
-                    });
-                }
+            // Update side deck
+            if (deck?.Side?.CardIds) {
+                deck.Side.CardIds.forEach((cardId, index) => {
+                    const cardInfo = getCardInfo(cardId);
+                    if (!cardInfo) {
+                        console.warn('No card info found for ID:', cardId);
+                        return;
+                    }
 
-                // Update counts
-                document.getElementById('mainCount').textContent = `${deck?.Main?.CardIds?.length || 0} cards`;
-                document.getElementById('extraCount').textContent = `${deck?.Extra?.CardIds?.length || 0} cards`;
-                document.getElementById('sideCount').textContent = `${deck?.Side?.CardIds?.length || 0} cards`;
+                    const div = document.createElement('div');
+                    div.className = 'card-item';
+                    div.innerHTML = `<img src="${getCardImageUrl(ydkMapping[cardId])}" alt="${cardInfo.name}">`;
+                    div.onmouseover = () => showCardPreview(cardId);
+                    div.onclick = () => removeCard(currentDeckType, 'Side', index);
+                    sideDeck.appendChild(div);
+                });
+            }
+
+            // Update counts
+            document.getElementById('mainCount').textContent = `${deck?.Main?.CardIds?.length || 0} cards`;
+            document.getElementById('extraCount').textContent = `${deck?.Extra?.CardIds?.length || 0} cards`;
+            document.getElementById('sideCount').textContent = `${deck?.Side?.CardIds?.length || 0} cards`;
+        }
+
+        function toggleDeck(type) {
+            currentDeckType = type;
+            document.getElementById('playerToggle').classList.toggle('active', type === 'player');
+            document.getElementById('cpuToggle').classList.toggle('active', type === 'cpu');
+            
+            // Update deck display with current data
+            if (currentDuelJson?.res?.[0]?.[1]?.Duel?.Deck) {
+                updateDeckLists(currentDuelJson.res[0][1].Duel.Deck);
             }
         }
 
@@ -2015,6 +2049,42 @@
                 alert('Error during initialization. Please check the console for details.');
             }
         });
+
+        function loadDuelJson() {
+            const chapterId = document.getElementById('duelJsonChapter').value;
+            if (!chapterId) return;
+
+            fetch(`${workingDirectory}/SoloDuels/${chapterId}.json`)
+                .then(response => response.json())
+                .then(data => {
+                    currentDuelJson = data;
+                    document.getElementById('jsonEditor').value = JSON.stringify(data, null, 2);
+                    
+                    // Update deck lists if available
+                    if (data?.res?.[0]?.[1]?.Duel?.Deck) {
+                        updateDeckLists(data.res[0][1].Duel.Deck);
+                    } else {
+                        console.warn('No deck data found in the loaded duel');
+                        // Clear deck displays
+                        updateDeckLists([
+                            {
+                                Main: { CardIds: [], Rare: [] },
+                                Extra: { CardIds: [], Rare: [] },
+                                Side: { CardIds: [], Rare: [] }
+                            },
+                            {
+                                Main: { CardIds: [], Rare: [] },
+                                Extra: { CardIds: [], Rare: [] },
+                                Side: { CardIds: [], Rare: [] }
+                            }
+                        ]);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading duel JSON:', error);
+                    document.getElementById('jsonError').textContent = `Error loading duel: ${error.message}`;
+                });
+        }
     </script>
 </body>
 </html> 

@@ -20,3 +20,7 @@ MasterDuelOffline-SoloModeEditor is a tool designed to modify the Solo Mode of Y
    cd MasterDuelOffline-SoloModeEditor
 
 2. Put Server & Html in the Data Folder of the Mod.
+
+3. Edit Server.py with your game info 
+# Change to the Yu-Gi-Oh! Master Duel data directory
+data_dir = r'C:\Program Files (x86)\Steam\steamapps\common\Yu-Gi-Oh!  Master Duel\YgoMaster-Mod\Data'
