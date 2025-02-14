@@ -1248,9 +1248,10 @@
 
         function saveDuel() {
             const chapterId = document.getElementById('duelChapterId').value;
+            const duelString = generateRandomDuelString();
             const duelData = {
                 "code": 0,
-                "res": [[69, {
+                "res": [[79, {
                     "Duel": {
                         "dlginfo": true,
                         "RandSeed": Math.floor(Math.random() * 1000000000),
@@ -1294,24 +1295,60 @@
                         ],
                         "rank": [1, 0],
                         "DuelistLv": [0, 0],
-                        "life": [parseInt(document.getElementById('lifePoints').value), parseInt(document.getElementById('lifePoints').value)],
-                        "noshuffle": document.getElementById('noShuffle').value === 'true',
-                        "story_deck_id": [
-                            parseInt(document.getElementById('storyDeckId1').value),
-                            parseInt(document.getElementById('storyDeckId2').value)
+                        "Deck": [
+                            {
+                                "Main": { "CardIds": [], "Rare": [] },
+                                "Extra": { "CardIds": [], "Rare": [] },
+                                "Side": { "CardIds": [], "Rare": [] }
+                            },
+                            {
+                                "Main": { "CardIds": [], "Rare": [] },
+                                "Extra": { "CardIds": [], "Rare": [] },
+                                "Side": { "CardIds": [], "Rare": [] }
+                            }
                         ],
-                        "chapter": parseInt(chapterId),
+                        "LeftTimeMax": 0,
+                        "TurnTimeMax": 0,
+                        "TotalTimeMax": 1000,
+                        "auto": -1,
+                        "rec": false,
+                        "recf": false,
                         "bgms": [
                             document.getElementById('bgmSelect').value,
                             document.getElementById('bgmSelect').value.replace('NORMAL', 'KEYCARD'),
                             document.getElementById('bgmSelect').value.replace('NORMAL', 'CLIMAX')
                         ],
+                        "tag": false,
+                        "MyPartnerType": 1,
+                        "PlayableTagPartner": 0,
+                        "regulation_id": 0,
+                        "duel_start_timestamp": Math.floor(Date.now() / 1000),
                         "surrender": true,
+                        "story_deck_id": [
+                            parseInt(document.getElementById('storyDeckId1').value),
+                            parseInt(document.getElementById('storyDeckId2').value)
+                        ],
+                        "chapter": parseInt(chapterId),
+                        "life": [parseInt(document.getElementById('lifePoints').value), parseInt(document.getElementById('lifePoints').value)],
+                        "noshuffle": document.getElementById('noShuffle').value === 'true',
+                        "hnum": [5, 5],
+                        "did": generateRandomDid(),
+                        "duel": duelString,
                         "is_pvp": false
+                    },
+                    "Persistence": {
+                        "System": {
+                            "duel": duelString
+                        }
                     }
-                }]],
+                }, 0, 0]],
                 "remove": ["Duel", "DuelResult", "Result"]
             };
+
+            // If we have current deck data, use it
+            if (currentDuelJson?.res?.[0]?.[1]?.Duel?.Deck) {
+                duelData.res[0][1].Duel.Deck = currentDuelJson.res[0][1].Duel.Deck;
+            }
 
             const dataStr = JSON.stringify(duelData, null, 2);
             const blob = new Blob([dataStr], {type: 'application/json'});
@@ -1325,226 +1362,87 @@
             URL.revokeObjectURL(url);
         }
 
-        function loadDuel(chapterId) {
+        // Helper function to generate random duel string
+        function generateRandomDuelString() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+            let result = '';
+            for (let i = 0; i < 64; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Helper function to generate random did (duel ID)
+        function generateRandomDid() {
+            // Generate a random 64-bit integer
+            const high = Math.floor(Math.random() * 0x100000000) >>> 0;
+            const low = Math.floor(Math.random() * 0x100000000) >>> 0;
+            return high * 0x100000000 + low;
+        }
+
+        async function loadDuel(chapterId) {
             try {
-                showLoading('Loading duel settings...');
-                fetch(`${workingDirectory}/SoloDuels/${chapterId}.json`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`Failed to load duel file: ${response.statusText}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (!data?.res?.[0]?.[1]?.Duel) {
-                            throw new Error('Invalid duel data format');
-                        }
-                        const duel = data.res[0][1].Duel;
-                        
-                        // Ensure item selects are populated first
-                        if (itemData) {
-                            populateItemSelects();
-                        }
+                showLoading("Loading duel settings...");
+                const response = await fetch(`${workingDirectory}/SoloDuels/${chapterId}.json`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load duel: ${response.statusText}`);
+                }
+                const data = await response.json();
+                
+                // Validate the data structure
+                if (!data?.res?.[0]?.[1]?.Duel) {
+                    throw new Error('Invalid duel data structure');
+                }
+                
+                currentDuelJson = data;  // Store the entire JSON for later use
+                const duel = data.res[0][1].Duel;
+                
+                // Update form fields with duel data, with null checks
+                document.getElementById('duelChapterId').value = duel.chapter || '';
+                document.getElementById('firstPlayer').value = duel.FirstPlayer || 1;
+                document.getElementById('cpuLevel').value = duel.cpu || 100;
+                document.getElementById('cpuFlag').value = duel.cpuflag || 'Normal';
+                
+                // Handle arrays with default values if undefined
+                const mat = duel.mat || [1090001, 1090001];
+                const sleeve = duel.sleeve || [1070001, 1070001];
+                const icon = duel.icon || [1010014, 1010001];
+                const icon_frame = duel.icon_frame || [1030001, 1030001];
+                const name = duel.name || ['Player', 'CPU'];
+                const story_deck_id = duel.story_deck_id || [0, 0];
+                const life = duel.life || [8000, 8000];
+                
+                document.getElementById('playerField').value = mat[0];
+                document.getElementById('cpuField').value = mat[1];
+                document.getElementById('playerSleeve').value = sleeve[0];
+                document.getElementById('cpuSleeve').value = sleeve[1];
+                document.getElementById('playerIcon').value = icon[0];
+                document.getElementById('cpuIcon').value = icon[1];
+                document.getElementById('playerIconFrame').value = icon_frame[0];
+                document.getElementById('cpuIconFrame').value = icon_frame[1];
+                document.getElementById('playerName').value = name[0];
+                document.getElementById('cpuName').value = name[1];
+                document.getElementById('bgmSelect').value = duel.bgms?.[0] || 'BGM_DUEL_NORMAL_01';
+                document.getElementById('storyDeckId1').value = story_deck_id[0];
+                document.getElementById('storyDeckId2').value = story_deck_id[1];
+                document.getElementById('lifePoints').value = life[0];
+                document.getElementById('noShuffle').value = duel.noshuffle || false;
 
-                        // Load all duel settings
-                        document.getElementById('duelChapterId').value = duel.chapter || chapterId;
-                        document.getElementById('firstPlayer').value = duel.FirstPlayer || 1;
-                        document.getElementById('lifePoints').value = duel.life?.[0] || 8000;
-                        document.getElementById('cpuLevel').value = duel.cpu || 100;
-                        document.getElementById('cpuFlag').value = duel.cpuflag || 'Normal';
-                        document.getElementById('storyDeckId1').value = duel.story_deck_id?.[0] || 0;
-                        document.getElementById('storyDeckId2').value = duel.story_deck_id?.[1] || 0;
-                        document.getElementById('bgmSelect').value = duel.bgms?.[0] || 'BGM_DUEL_NORMAL_01';
-                        document.getElementById('noShuffle').value = (duel.noshuffle || false).toString();
+                // If we have deck data, update the deck lists
+                if (duel.Deck) {
+                    updateDeckLists(duel.Deck);
+                }
 
-                        // Load names
-                        document.getElementById('playerName').value = duel.name?.[0] || 'Name';
-                        document.getElementById('cpuName').value = duel.name?.[1] || 'CPU Opponent';
-
-                        // Load item IDs with proper fallbacks
-                        document.getElementById('playerIcon').value = duel.icon?.[0] || 1010014;
-                        document.getElementById('cpuIcon').value = duel.icon?.[1] || 1010001;
-                        document.getElementById('playerIconFrame').value = duel.icon_frame?.[0] || 1030001;
-                        document.getElementById('cpuIconFrame').value = duel.icon_frame?.[1] || 1030001;
-                        document.getElementById('playerSleeve').value = duel.sleeve?.[0] || 1070001;
-                        document.getElementById('cpuSleeve').value = duel.sleeve?.[1] || 1070001;
-                        document.getElementById('playerField').value = duel.mat?.[0] || 1090001;
-                        document.getElementById('cpuField').value = duel.mat?.[1] || 1090001;
-
-                        // Show success message
-                        const duelList = document.getElementById('duelList');
-                        const message = document.createElement('div');
-                        message.className = 'success-message';
-                        message.textContent = `Successfully loaded duel settings for Chapter ${chapterId}`;
-                        message.style.color = 'green';
-                        message.style.marginTop = '10px';
-                        duelList.insertBefore(message, duelList.firstChild);
-
-                        setTimeout(() => message.remove(), 3000);
-                    })
-                    .catch(error => {
-                        console.error('Error loading duel:', error);
-                        const duelList = document.getElementById('duelList');
-                        const errorMessage = document.createElement('div');
-                        errorMessage.className = 'error-message';
-                        errorMessage.textContent = `Error loading duel: ${error.message}`;
-                        errorMessage.style.color = 'red';
-                        errorMessage.style.marginTop = '10px';
-                        duelList.insertBefore(errorMessage, duelList.firstChild);
-
-                        setTimeout(() => errorMessage.remove(), 5000);
-                    });
+                showMessage("Duel settings loaded successfully!", "success");
             } catch (error) {
                 console.error('Error loading duel:', error);
-                const duelList = document.getElementById('duelList');
-                const errorMessage = document.createElement('div');
-                errorMessage.className = 'error-message';
-                errorMessage.textContent = `Error loading duel: ${error.message}`;
-                errorMessage.style.color = 'red';
-                errorMessage.style.marginTop = '10px';
-                duelList.insertBefore(errorMessage, duelList.firstChild);
-
-                setTimeout(() => errorMessage.remove(), 5000);
+                showMessage(`Error loading duel: ${error.message}`, "error");
             } finally {
                 hideLoading();
             }
         }
 
-        function updateDuelsList() {
-            const duelList = document.getElementById('duelList');
-            duelList.innerHTML = '';
-            
-            // Add status message at the top
-            const statusDiv = document.createElement('div');
-            statusDiv.className = 'status-message';
-            statusDiv.style.marginBottom = '15px';
-            statusDiv.style.padding = '10px';
-            statusDiv.style.backgroundColor = '#f8f9fa';
-            statusDiv.style.borderRadius = '4px';
-            duelList.appendChild(statusDiv);
-            
-            const chapters = [];
-            let loadedCount = 0;
-            
-            // Collect all chapters with NPCs
-            for (const [gateId, gate] of Object.entries(soloData.res[0][1].Master.Solo.chapter)) {
-                for (const [chapterId, chapter] of Object.entries(gate)) {
-                    if (chapter.npc_id > 0) {
-                        chapters.push({
-                            chapterId,
-                            gateId,
-                            npcId: chapter.npc_id,
-                            difficulty: chapter.difficulty
-                        });
-                    }
-                }
-            }
-
-            // Sort chapters numerically
-            chapters.sort((a, b) => parseInt(a.chapterId) - parseInt(b.chapterId));
-            
-            // Update status message
-            statusDiv.textContent = `Found ${chapters.length} chapters with duels`;
-            
-            // Create duel entries
-            chapters.forEach(({chapterId, gateId, npcId, difficulty}) => {
-                const duelElement = document.createElement('div');
-                duelElement.className = 'gate-item';
-                
-                // Get difficulty name
-                const difficultyNames = ['Story', 'Easy', 'Normal', 'Hard', 'Very Hard', 'Challenge'];
-                const difficultyName = difficultyNames[difficulty] || 'Unknown';
-                
-                duelElement.innerHTML = `
-                    <div style="margin-bottom: 5px;">
-                        <strong>Chapter ${chapterId}</strong> (Gate ${gateId})
-                        <div class="help-text">
-                            Difficulty: ${difficultyName}
-                            <br>
-                            NPC ID: ${npcId}
-                        </div>
-                    </div>
-                    <button onclick="loadDuel('${chapterId}')" style="margin-right: 5px;">Load Settings</button>
-                    <button onclick="previewDuel('${chapterId}')" style="background: #17a2b8;">Preview JSON</button>
-                `;
-                duelList.appendChild(duelElement);
-                
-                // Check if duel file exists
-                fetch(`${workingDirectory}/SoloDuels/${chapterId}.json`)
-                    .then(response => {
-                        if (response.ok) loadedCount++;
-                        statusDiv.textContent = `Found ${chapters.length} chapters with duels (${loadedCount} duel files loaded)`;
-                    })
-                    .catch(() => {});
-            });
-        }
-
-        function previewDuel(chapterId) {
-            fetch(`${workingDirectory}/SoloDuels/${chapterId}.json`)
-                .then(response => response.json())
-                .then(data => {
-                    // Switch to the Duel JSON tab
-                    showSection('duelJson');
-                    // Load the data into the JSON editor
-                    document.getElementById('duelJsonChapter').value = chapterId;
-                    document.getElementById('jsonEditor').value = JSON.stringify(data, null, 2);
-                    // Update deck lists if available
-                    if (data?.res?.[0]?.[1]?.Duel?.Deck) {
-                        currentDuelJson = data;
-                        updateDeckLists(data);
-                    }
-                })
-                .catch(error => {
-                    alert(`Error loading duel preview: ${error.message}`);
-                });
-        }
-
-        function loadDuelJson() {
-            const chapterId = document.getElementById('duelJsonChapter').value;
-            if (!chapterId) return;
-
-            try {
-                showLoading('Loading duel JSON...');
-                fetch(`${workingDirectory}/SoloDuels/${chapterId}.json`)
-                    .then(response => response.json())
-                    .then(data => {
-                        // Initialize deck structure if it doesn't exist
-                        if (!data.res[0][1].Duel.Deck) {
-                            data.res[0][1].Duel.Deck = [
-                                {
-                                    Main: { CardIds: [], Rare: [] },
-                                    Extra: { CardIds: [], Rare: [] },
-                                    Side: { CardIds: [], Rare: [] }
-                                },
-                                {
-                                    Main: { CardIds: [], Rare: [] },
-                                    Extra: { CardIds: [], Rare: [] },
-                                    Side: { CardIds: [], Rare: [] }
-                                }
-                            ];
-                        }
-                        currentDuelJson = data;
-                        document.getElementById('jsonEditor').value = JSON.stringify(data, null, 2);
-                        updateDeckLists(data);
-                    })
-                    .catch(error => {
-                        document.getElementById('jsonError').textContent = `Error loading duel: ${error.message}`;
-                    });
-            } finally {
-                hideLoading();
-            }
-        }
-
-        function toggleDeck(type) {
-            currentDeckType = type;
-            document.getElementById('playerToggle').classList.toggle('active', type === 'player');
-            document.getElementById('cpuToggle').classList.toggle('active', type === 'cpu');
-            if (currentDuelJson) {
-                updateDeckLists(currentDuelJson);
-            }
-        }
-
-        function updateDeckLists(duelData) {
+        function updateDeckLists(deckData) {
             const mainDeck = document.getElementById('mainDeck');
             const extraDeck = document.getElementById('extraDeck');
             const sideDeck = document.getElementById('sideDeck');
@@ -1553,9 +1451,9 @@
             extraDeck.innerHTML = '';
             sideDeck.innerHTML = '';
 
-            if (duelData?.res?.[0]?.[1]?.Duel?.Deck) {
+            if (deckData) {
                 const deckIndex = currentDeckType === 'player' ? 0 : 1;
-                const deck = duelData.res[0][1].Duel.Deck[deckIndex];
+                const deck = deckData[deckIndex];
 
                 // Count cards
                 const cardCounts = {};
@@ -2004,6 +1902,106 @@
 
         function hideLoading() {
             document.getElementById('loadingIndicator').style.display = 'none';
+        }
+
+        function updateDuelsList() {
+            const duelList = document.getElementById('duelList');
+            duelList.innerHTML = '';
+            
+            // Add status message at the top
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'status-message';
+            statusDiv.style.marginBottom = '15px';
+            statusDiv.style.padding = '10px';
+            statusDiv.style.backgroundColor = '#f8f9fa';
+            statusDiv.style.borderRadius = '4px';
+            duelList.appendChild(statusDiv);
+            
+            const chapters = [];
+            let loadedCount = 0;
+            
+            // Collect all chapters with NPCs
+            for (const [gateId, gate] of Object.entries(soloData.res[0][1].Master.Solo.chapter)) {
+                for (const [chapterId, chapter] of Object.entries(gate)) {
+                    if (chapter.npc_id > 0) {
+                        chapters.push({
+                            chapterId,
+                            gateId,
+                            npcId: chapter.npc_id,
+                            difficulty: chapter.difficulty
+                        });
+                    }
+                }
+            }
+
+            // Sort chapters numerically
+            chapters.sort((a, b) => parseInt(a.chapterId) - parseInt(b.chapterId));
+            
+            // Update status message
+            statusDiv.textContent = `Found ${chapters.length} chapters with duels`;
+            
+            // Create duel entries
+            chapters.forEach(({chapterId, gateId, npcId, difficulty}) => {
+                const duelElement = document.createElement('div');
+                duelElement.className = 'gate-item';
+                
+                // Get difficulty name
+                const difficultyNames = ['Story', 'Easy', 'Normal', 'Hard', 'Very Hard', 'Challenge'];
+                const difficultyName = difficultyNames[difficulty] || 'Unknown';
+                
+                duelElement.innerHTML = `
+                    <div style="margin-bottom: 5px;">
+                        <strong>Chapter ${chapterId}</strong> (Gate ${gateId})
+                        <div class="help-text">
+                            Difficulty: ${difficultyName}
+                            <br>
+                            NPC ID: ${npcId}
+                        </div>
+                    </div>
+                    <button onclick="loadDuel('${chapterId}')" style="margin-right: 5px;">Load Settings</button>
+                    <button onclick="previewDuel('${chapterId}')" style="background: #17a2b8;">Preview JSON</button>
+                `;
+                duelList.appendChild(duelElement);
+                
+                // Check if duel file exists
+                fetch(`${workingDirectory}/SoloDuels/${chapterId}.json`)
+                    .then(response => {
+                        if (response.ok) loadedCount++;
+                        statusDiv.textContent = `Found ${chapters.length} chapters with duels (${loadedCount} duel files loaded)`;
+                    })
+                    .catch(() => {});
+            });
+        }
+
+        function previewDuel(chapterId) {
+            fetch(`${workingDirectory}/SoloDuels/${chapterId}.json`)
+                .then(response => response.json())
+                .then(data => {
+                    // Switch to the Duel JSON tab
+                    showSection('duelJson');
+                    // Load the data into the JSON editor
+                    document.getElementById('duelJsonChapter').value = chapterId;
+                    document.getElementById('jsonEditor').value = JSON.stringify(data, null, 2);
+                    // Update deck lists if available
+                    if (data?.res?.[0]?.[1]?.Duel?.Deck) {
+                        currentDuelJson = data;
+                        updateDeckLists(data);
+                    }
+                })
+                .catch(error => {
+                    alert(`Error loading duel preview: ${error.message}`);
+                });
+        }
+
+        function showMessage(message, type) {
+            const duelList = document.getElementById('duelList');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'success' ? 'success-message' : 'error-message';
+            messageDiv.textContent = message;
+            messageDiv.style.color = type === 'success' ? 'green' : 'red';
+            messageDiv.style.marginTop = '10px';
+            duelList.insertBefore(messageDiv, duelList.firstChild);
+            setTimeout(() => messageDiv.remove(), type === 'success' ? 3000 : 5000);
         }
 
         // Modify the initialization to ensure proper loading order
