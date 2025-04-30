@@ -352,6 +352,7 @@
         <div class="status-item" id="npcStatus">SoloNpcDeckIds.json: Not Loaded</div>
         <div class="status-item" id="cardStatus">CardList.json: Not Loaded</div>
         <div class="status-item" id="workingDir">Working Directory: Loading...</div>
+        <div class="status-item"><button onclick="saveData()">Save Solo.json</button></div>
     </div>
     
     <div class="tab-container">
@@ -1080,7 +1081,7 @@
 
             soloData.res[0][1].Master.Solo.gate[gateId] = gate;
             updateLists();
-            saveData();
+            
         }
 
         function addChapter() {
@@ -1104,7 +1105,7 @@
             }
             soloData.res[0][1].Master.Solo.chapter[gateId][chapterId] = chapter;
             updateLists();
-            saveData();
+            
         }
 
         function addUnlock() {
@@ -1120,7 +1121,7 @@
             };
             
             updateLists();
-            saveData();
+            
         }
 
         function updateLists() {
@@ -1209,7 +1210,7 @@
             }
             delete soloData.res[0][1].Master.Solo.gate[id];
             updateLists();
-            saveData();
+            
         }
 
         function deleteChapter(gateId, chapterId) {
@@ -1221,7 +1222,7 @@
                 delete soloData.res[0][1].Master.Solo.chapter[gateId];
             }
             updateLists();
-            saveData();
+            
         }
 
         function deleteUnlock(id) {
@@ -1230,7 +1231,7 @@
             }
             delete soloData.res[0][1].Master.Solo.unlock[id];
             updateLists();
-            saveData();
+            
         }
 
         function saveData() {
@@ -2063,7 +2064,12 @@
                     // Update deck lists if available
                     if (data?.res?.[0]?.[1]?.Duel?.Deck) {
                         updateDeckLists(data.res[0][1].Duel.Deck);
-                    } else {
+                    } 
+                    //Added compatibility for editing the LE Combined mod as it uses a different structure for its duel json files
+                    else if(data?.Duel?.Deck){
+                        updateDeckLists(data?.Duel?.Deck);
+                    }
+                    else {
                         console.warn('No deck data found in the loaded duel');
                         // Clear deck displays
                         updateDeckLists([
