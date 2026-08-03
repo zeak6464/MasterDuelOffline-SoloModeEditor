@@ -429,6 +429,44 @@
             font-size: 12px;
             box-sizing: border-box;
         }
+        .movie-editor {
+            display: grid;
+            grid-template-columns: minmax(320px, 1fr) 1fr;
+            gap: 20px;
+            margin-top: 16px;
+        }
+        .movie-preview-panel {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .movie-preview-panel video {
+            width: 100%;
+            max-height: 420px;
+            background: #000;
+            display: block;
+        }
+        .movie-preview-meta {
+            padding: 10px;
+            color: #ddd;
+            font-size: 0.9em;
+        }
+        .movie-preview-meta .muted {
+            color: #888;
+        }
+        .movie-preview-status {
+            padding: 8px 10px;
+            color: #f0c674;
+            font-size: 0.85em;
+            border-top: 1px solid #333;
+            min-height: 1.2em;
+        }
+        .movie-preview-status.error { color: #ff8a80; }
+        .movie-preview-status.ok { color: #81c784; }
+        @media (max-width: 900px) {
+            .movie-editor { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -763,35 +801,51 @@
         <!-- Movies Section -->
         <div id="movies" class="section">
             <h2>Movie Editor</h2>
-            <div class="form-group">
-                <label>Chapter ID:</label>
-                <select id="movieChapter" onchange="loadMovie()">
-                    <option value="">Select Chapter</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Remote URL:</label>
-                <input type="text" id="movieUrl" placeholder="Enter video URL">
-                <div class="help-text">URL of the video file to play</div>
-            </div>
-            <div class="form-group">
-                <label>Bitrate Value:</label>
-                <input type="text" id="movieBv" value="0.800000">
-                <div class="help-text">Video bitrate value (default: 0.800000)</div>
-            </div>
-            <div class="form-group">
-                <label>Display Size:</label>
-                <input type="text" id="movieDs" placeholder="e.g., 100.08MB">
-                <div class="help-text">Display size of the video</div>
-            </div>
-            <div class="form-group">
-                <label>Play Time (ms):</label>
-                <input type="number" id="moviePt" placeholder="Duration in milliseconds">
-                <div class="help-text">Duration of the video in milliseconds</div>
-            </div>
-            <button onclick="saveMovie()">Save Movie Settings</button>
+            <div class="movie-editor">
+                <div class="movie-preview-panel">
+                    <video id="moviePreviewPlayer" controls playsinline preload="metadata"></video>
+                    <div class="movie-preview-meta">
+                        <div id="moviePreviewTitle">No movie selected</div>
+                        <div class="muted" id="moviePreviewInfo"></div>
+                    </div>
+                    <div class="movie-preview-status" id="moviePreviewStatus">Select a chapter to preview</div>
+                </div>
 
-            <div class="movie-list" id="movieList">
+                <div>
+                    <div class="form-group">
+                        <label>Chapter ID:</label>
+                        <select id="movieChapter" onchange="loadMovie()">
+                            <option value="">Select Chapter</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Remote URL:</label>
+                        <input type="text" id="movieUrl" placeholder="Enter video URL" oninput="previewMovie()" onchange="previewMovie()">
+                        <div class="help-text">URL of the video file to play</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Bitrate Value:</label>
+                        <input type="text" id="movieBv" value="0.800000">
+                        <div class="help-text">Video bitrate value (default: 0.800000)</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Display Size:</label>
+                        <input type="text" id="movieDs" placeholder="e.g., 100.08MB">
+                        <div class="help-text">Display size of the video</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Play Time (ms):</label>
+                        <input type="number" id="moviePt" placeholder="Duration in milliseconds">
+                        <div class="help-text">Duration of the video in milliseconds</div>
+                    </div>
+                    <div class="button-row">
+                        <button type="button" onclick="previewMovie()">Refresh Preview</button>
+                        <button type="button" onclick="saveMovie()">Save Movie Settings</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="movie-list" id="movieList" style="margin-top: 20px;">
                 <!-- Movies will be listed here -->
             </div>
         </div>
@@ -925,29 +979,53 @@
         <!-- Shop -->
         <div id="shop" class="section">
             <h2>Shop / Pack Odds</h2>
-            <div class="panel-box">
-                <label class="check-row"><input type="checkbox" id="shopUnlockSecrets"> Unlock all secrets</label>
-                <label class="check-row"><input type="checkbox" id="shopNoDupes"> No duplicates per pack</label>
-                <label class="check-row"><input type="checkbox" id="shopAllInStandard"> Put all cards in standard pack</label>
-            </div>
             <div class="form-group">
                 <label>Pack</label>
-                <select id="shopPackSelect" onchange="populateShopPackFields()"></select>
+                <input type="text" id="shopPackFilter" class="search-input" placeholder="Filter packs by name..."
+                    oninput="populateShopPackSelect(this.value)" style="margin-bottom:8px;">
+                <select id="shopPackSelect" onchange="populateShopPackFields()" size="12" style="height:auto;"></select>
+                <div class="help-text">Names come from pack type + featured cards (or PackNames.json overrides).</div>
             </div>
-            <div class="grid-2">
-                <div class="form-group"><label>Cards per pack</label><input id="shopPackCards" type="number"></div>
-                <div class="form-group"><label>Single pull cost (gems)</label><input id="shopPriceSingle" type="number"></div>
-                <div class="form-group"><label>Multi pull cost (gems)</label><input id="shopPriceMulti" type="number"></div>
+            <div class="form-inline" style="margin-bottom: 12px;">
+                <label class="check-row"><input type="checkbox" id="shopUnlockSecrets"> Unlock all secrets</label>
+                <label class="check-row"><input type="checkbox" id="shopNoDupes"> No duplicates</label>
+                <label class="check-row"><input type="checkbox" id="shopAllInStandard"> All cards in standard</label>
             </div>
-            <div class="form-group">
-                <label>Pack cardList (game IDs, comma separated)</label>
-                <textarea class="wide" id="shopCardList"></textarea>
-            </div>
-            <div id="shopOddsEditor"></div>
-            <div class="button-row">
+            <div class="form-inline" style="margin-bottom: 12px;">
+                Cards/pack <input id="shopPackCards" type="number" style="width:80px">
+                Single cost <input id="shopPriceSingle" type="number" style="width:90px">
+                Multi cost <input id="shopPriceMulti" type="number" style="width:90px">
                 <button onclick="loadShopEditor()">Reload</button>
                 <button onclick="saveShopEditor()">Save Shop + Odds</button>
             </div>
+
+            <div class="deck-editor">
+                <div class="card-preview" id="shopPreview"></div>
+                <div class="deck-container">
+                    <div class="deck-toggle" style="margin-bottom: 10px;">
+                        <button id="shopViewCards" class="toggle-btn active" onclick="setShopView('cards')">Pack Cards</button>
+                        <button id="shopViewOdds" class="toggle-btn" onclick="setShopView('odds')">Odds</button>
+                    </div>
+
+                    <div id="shopCardsPanel">
+                        <div class="search-section">
+                            <div class="search-container">
+                                <input type="text" class="search-input" id="shopCardSearch" placeholder="Search cards to add..." oninput="searchShopCards()">
+                            </div>
+                            <div class="search-results" id="shopSearchResults"></div>
+                        </div>
+                        <div class="deck-section">
+                            <h3>Pack Card List <span class="deck-count" id="shopCardCount">0 cards</span></h3>
+                            <div class="card-grid" id="shopCardGrid"></div>
+                        </div>
+                    </div>
+
+                    <div id="shopOddsPanel" style="display:none;">
+                        <div id="shopOddsEditor"></div>
+                    </div>
+                </div>
+            </div>
+            <textarea id="shopCardList" style="display:none"></textarea>
         </div>
 
         <!-- Structure Decks -->
@@ -2259,9 +2337,121 @@
             populateMovieChapterSelect();
         }
 
+        function setMoviePreviewStatus(message, type = '') {
+            const el = document.getElementById('moviePreviewStatus');
+            if (!el) return;
+            el.textContent = message;
+            el.className = `movie-preview-status${type ? ' ' + type : ''}`;
+        }
+
+        function resolveMoviePreviewUrl(url) {
+            const raw = (url || '').trim();
+            if (!raw) return '';
+            // If only a filename is given, try serving it from SoloMovies via this editor server
+            if (!/^https?:\/\//i.test(raw) && !raw.includes('/')) {
+                return `${workingDirectory}/SoloMovies/${raw}`;
+            }
+            // localhost root videos often live next to SoloMovies on the editor server
+            try {
+                const u = new URL(raw, window.location.href);
+                if ((u.hostname === 'localhost' || u.hostname === '127.0.0.1') && u.port === '' && u.pathname.endsWith('.mp4')) {
+                    const name = u.pathname.split('/').pop();
+                    return `${workingDirectory}/SoloMovies/${name}`;
+                }
+            } catch (_) {}
+            return raw;
+        }
+
+        function previewMovie() {
+            const chapterId = document.getElementById('movieChapter').value;
+            const url = (document.getElementById('movieUrl').value || '').trim();
+            const bv = document.getElementById('movieBv').value;
+            const ds = document.getElementById('movieDs').value;
+            const pt = document.getElementById('moviePt').value;
+            const player = document.getElementById('moviePreviewPlayer');
+            const title = document.getElementById('moviePreviewTitle');
+            const info = document.getElementById('moviePreviewInfo');
+
+            title.textContent = chapterId ? `Chapter ${chapterId}` : 'No movie selected';
+            const secs = pt ? (parseInt(pt, 10) / 1000).toFixed(1) + 's' : '?';
+            info.textContent = `Size: ${ds || '?'} · Duration: ${secs} · Bitrate: ${bv || '?'}`;
+
+            if (!url) {
+                player.removeAttribute('src');
+                player.load();
+                setMoviePreviewStatus('Enter a video URL to preview');
+                return;
+            }
+
+            const candidates = [];
+            const resolved = resolveMoviePreviewUrl(url);
+            if (resolved) candidates.push(resolved);
+            if (url && !candidates.includes(url)) candidates.push(url);
+            if (chapterId) {
+                const local = `${workingDirectory}/SoloMovies/${chapterId}.mp4`;
+                if (!candidates.includes(local)) candidates.push(local);
+            }
+
+            const token = String(Date.now());
+            player.dataset.previewToken = token;
+            setMoviePreviewStatus('Checking for preview video...');
+
+            (async () => {
+                for (const previewUrl of candidates) {
+                    if (player.dataset.previewToken !== token) return;
+                    let reachable = false;
+                    try {
+                        // Prefer API exists check for local editor files (avoids noisy 404 GETs)
+                        const localPrefix = `${workingDirectory}/`;
+                        if (previewUrl.startsWith(localPrefix) && typeof apiPost === 'function') {
+                            const rel = previewUrl.slice(localPrefix.length);
+                            const res = await apiPost('/api/exists', { path: rel });
+                            reachable = !!res.exists;
+                        } else {
+                            const res = await fetch(previewUrl, { method: 'HEAD' });
+                            reachable = res.ok;
+                        }
+                    } catch (_) {
+                        reachable = false;
+                    }
+                    if (!reachable) continue;
+
+                    setMoviePreviewStatus(`Loading preview: ${previewUrl}`);
+                    player.onerror = () => {
+                        if (player.dataset.previewToken === token) {
+                            setMoviePreviewStatus(
+                                'Could not load video. Put the .mp4 in Data/SoloMovies or use a reachable URL.',
+                                'error'
+                            );
+                        }
+                    };
+                    player.onloadedmetadata = () => {
+                        if (player.dataset.previewToken !== token) return;
+                        const dur = isFinite(player.duration) ? player.duration.toFixed(1) + 's' : secs;
+                        setMoviePreviewStatus(`Preview loaded (${dur}) — ${previewUrl}`, 'ok');
+                    };
+                    player.dataset.currentSrc = previewUrl;
+                    player.src = previewUrl;
+                    player.load();
+                    return;
+                }
+                if (player.dataset.previewToken === token) {
+                    player.removeAttribute('src');
+                    player.load();
+                    setMoviePreviewStatus(
+                        'No video file found. Put e.g. Data/SoloMovies/710001.mp4 or host the URL.',
+                        'error'
+                    );
+                }
+            })();
+        }
+
         function loadMovie() {
             const chapterId = document.getElementById('movieChapter').value;
-            if (!chapterId) return;
+            if (!chapterId) {
+                previewMovie();
+                return;
+            }
 
             const movieData = movieFiles[chapterId];
             if (movieData) {
@@ -2270,6 +2460,7 @@
                 document.getElementById('movieDs').value = movieData.movie.ds || '';
                 document.getElementById('moviePt').value = movieData.movie.pt || '';
             }
+            previewMovie();
         }
 
         function saveMovie() {
@@ -2318,7 +2509,7 @@
                     <div>Chapter ${chapterId} Movie</div>
                     <div class="help-text">URL: ${data.movie.url}</div>
                     <div class="help-text">Duration: ${data.movie.pt}ms</div>
-                    <button onclick="document.getElementById('movieChapter').value='${chapterId}';loadMovie()">Edit</button>
+                    <button onclick="document.getElementById('movieChapter').value='${chapterId}';loadMovie()">Edit / Preview</button>
                 `;
                 movieList.appendChild(movieElement);
             });

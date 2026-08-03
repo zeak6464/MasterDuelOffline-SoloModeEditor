@@ -222,53 +222,215 @@ async function saveCustomDuelEditor() {
 }
 
 /* ========== Shop / Odds ========== */
+let shopView = 'cards';
+let packNameOverrides = null; // optional PackNames.json map
+
+function getPackTypeLabel(pack) {
+    const sub = pack?.subCategory;
+    if (sub === 4) return 'Master Pack';
+    if (sub === 3) return 'Legacy Pack';
+    if (sub === 1) return 'Selection Pack';
+    if (sub === 2) return 'Secret Pack';
+    return 'Pack';
+}
+
+function getPackFeaturedCardIds(pack) {
+    const ids = [];
+    if (pack?.iconMrk) ids.push(Number(pack.iconMrk));
+    (pack?.preview || []).forEach(p => {
+        if (p && p.type === 1 && p.mrk) ids.push(Number(p.mrk));
+    });
+    return [...new Set(ids.filter(n => n > 0))];
+}
+
+function getPackFeaturedCardNames(pack, limit = 2) {
+    const names = [];
+    for (const gameId of getPackFeaturedCardIds(pack)) {
+        const info = typeof getCardInfo === 'function' ? getCardInfo(gameId) : null;
+        if (info?.name) names.push(info.name);
+        if (names.length >= limit) break;
+    }
+    return names;
+}
+
+function packIdFromTextId(nameTextId) {
+    const m = String(nameTextId || '').match(/IDS_CARDPACK_ID(\d+)_NAME/i);
+    return m ? m[1] : '';
+}
+
+function getShopPackDisplayName(packId, pack) {
+    if (!pack) return String(packId);
+    const textId = pack.nameTextId || '';
+    const shortId = packIdFromTextId(textId) || String(pack.targetId || '');
+
+    // Optional override file: PackNames.json keyed by shopId, targetId, or nameTextId
+    if (packNameOverrides) {
+        const hit = packNameOverrides[packId]
+            || packNameOverrides[String(pack.targetId)]
+            || packNameOverrides[textId]
+            || packNameOverrides[shortId];
+        if (hit) return hit;
+    }
+
+    const type = getPackTypeLabel(pack);
+    if (type === 'Master Pack') return 'Master Pack';
+    if (type === 'Legacy Pack') return 'Legacy Pack';
+
+    const featured = getPackFeaturedCardNames(pack, 2);
+    if (featured.length) {
+        return `${type}: ${featured.join(' / ')}`;
+    }
+
+    // Fallback before card DB is ready
+    if (shortId) return `${type} #${Number(shortId)}`;
+    return `${type} (${packId})`;
+}
+
+function populateShopPackSelect(filter = '') {
+    const select = document.getElementById('shopPackSelect');
+    if (!select || !shopData?.PackShop) return;
+    const prev = select.value;
+    const q = (filter || '').toLowerCase().trim();
+    const entries = Object.entries(shopData.PackShop)
+        .map(([id, pack]) => {
+            const name = getShopPackDisplayName(id, pack);
+            return { id, pack, name, sort: pack.sort || 0 };
+        })
+        .sort((a, b) => (b.sort - a.sort) || a.name.localeCompare(b.name));
+
+    select.innerHTML = '';
+    entries.forEach(({ id, name }) => {
+        if (q && !name.toLowerCase().includes(q) && !String(id).includes(q)) return;
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = name;
+        opt.title = `${name} (${id})`;
+        select.appendChild(opt);
+    });
+    if (prev && [...select.options].some(o => o.value === prev)) {
+        select.value = prev;
+    }
+}
+
+async function loadPackNameOverrides() {
+    try {
+        // Optional file — use API only (no GET fallback / 404 noise)
+        const result = await apiPost('/api/load', { path: 'PackNames.json' });
+        packNameOverrides = result.data || null;
+    } catch (_) {
+        packNameOverrides = null;
+    }
+}
+
 async function loadShopEditor() {
     shopData = await fetchJsonc('Shop.json');
     shopOddsData = await fetchJsonc('ShopPackOdds.json');
-    const select = document.getElementById('shopPackSelect');
-    select.innerHTML = '';
-    Object.keys(shopData.PackShop || {}).sort().forEach(id => {
-        const pack = shopData.PackShop[id];
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = `${id} — ${pack.nameTextId || ''}`;
-        select.appendChild(opt);
-    });
+    await loadPackNameOverrides();
+    populateShopPackSelect(document.getElementById('shopPackFilter')?.value || '');
     document.getElementById('shopUnlockSecrets').checked = !!shopData.UnlockAllSecrets;
     document.getElementById('shopNoDupes').checked = !!shopData.NoDuplicatesPerPack;
     document.getElementById('shopAllInStandard').checked = !!shopData.PutAllCardsInStandardPack;
     populateShopPackFields();
     renderShopOdds();
+    setShopView(shopView);
     document.getElementById('shopStatus').textContent = 'Shop.json: Loaded';
     document.getElementById('shopStatus').className = 'status-item loaded';
 }
 
+function setShopView(view) {
+    shopView = view;
+    document.getElementById('shopViewCards')?.classList.toggle('active', view === 'cards');
+    document.getElementById('shopViewOdds')?.classList.toggle('active', view === 'odds');
+    const cards = document.getElementById('shopCardsPanel');
+    const odds = document.getElementById('shopOddsPanel');
+    if (cards) cards.style.display = view === 'cards' ? '' : 'none';
+    if (odds) odds.style.display = view === 'odds' ? '' : 'none';
+}
+
+function getSelectedShopPack() {
+    const id = document.getElementById('shopPackSelect')?.value;
+    if (!id || !shopData?.PackShop?.[id]) return null;
+    return shopData.PackShop[id];
+}
+
 function populateShopPackFields() {
-    const id = document.getElementById('shopPackSelect').value;
-    if (!id || !shopData?.PackShop?.[id]) return;
-    const pack = shopData.PackShop[id];
+    const pack = getSelectedShopPack();
+    if (!pack) return;
     document.getElementById('shopPackCards').value = pack.pack_card_num ?? 8;
     const p1 = pack.prices?.['1']?.use_item_num ?? 100;
     const p2 = pack.prices?.['2']?.use_item_num ?? 1000;
     document.getElementById('shopPriceSingle').value = p1;
     document.getElementById('shopPriceMulti').value = p2;
-    document.getElementById('shopCardList').value = (pack.cardList || []).join(', ');
+    if (!Array.isArray(pack.cardList)) pack.cardList = [];
+    document.getElementById('shopCardList').value = pack.cardList.join(', ');
+    renderShopCardGrid();
+}
+
+function renderShopCardGrid() {
+    const pack = getSelectedShopPack();
+    const allIds = pack?.cardList || [];
+    const filter = (document.getElementById('shopCardSearch')?.value || '').trim();
+    let ids = allIds;
+    if (!filter) ids = allIds.slice(0, 200);
+    if (typeof renderIdGrid === 'function') {
+        renderIdGrid('shopCardGrid', ids, {
+            filter,
+            onRemove: (id) => {
+                const p = getSelectedShopPack();
+                if (!p) return;
+                p.cardList = (p.cardList || []).filter(x => Number(x) !== Number(id));
+                document.getElementById('shopCardList').value = p.cardList.join(', ');
+                renderShopCardGrid();
+            }
+        });
+    }
+    const countEl = document.getElementById('shopCardCount');
+    if (countEl) {
+        countEl.textContent = filter
+            ? `${ids.length} matched / ${allIds.length} total`
+            : `showing ${Math.min(200, allIds.length)} / ${allIds.length}`;
+    }
+}
+
+function searchShopCards() {
+    const q = document.getElementById('shopCardSearch')?.value || '';
+    if (typeof renderSearchResults === 'function') {
+        renderSearchResults('shopSearchResults', q, (gameId) => {
+            addCardToShopPack(gameId);
+        });
+    }
+    renderShopCardGrid();
+}
+
+function addCardToShopPack(gameId) {
+    const pack = getSelectedShopPack();
+    if (!pack) return;
+    pack.cardList = pack.cardList || [];
+    const id = Number(gameId);
+    if (!pack.cardList.map(Number).includes(id)) {
+        pack.cardList.push(id);
+    }
+    document.getElementById('shopCardList').value = pack.cardList.join(', ');
+    renderShopCardGrid();
+    if (typeof notify === 'function') notify(`Added to pack: ${gameId}`, 'success');
 }
 
 function applyShopPackFields() {
-    const id = document.getElementById('shopPackSelect').value;
-    if (!id || !shopData?.PackShop?.[id]) return;
-    const pack = shopData.PackShop[id];
+    const pack = getSelectedShopPack();
+    if (!pack) return;
     pack.pack_card_num = parseInt(document.getElementById('shopPackCards').value, 10) || 8;
     pack.prices = pack.prices || {};
     pack.prices['1'] = pack.prices['1'] || { price_id: 1, item_category: 1, item_id: 1, button_type: 1, buy_count: 1, sort: 1 };
     pack.prices['2'] = pack.prices['2'] || { price_id: 2, item_category: 1, item_id: 1, button_type: 2, buy_count: 1, sort: 2 };
     pack.prices['1'].use_item_num = parseInt(document.getElementById('shopPriceSingle').value, 10) || 0;
     pack.prices['2'].use_item_num = parseInt(document.getElementById('shopPriceMulti').value, 10) || 0;
-    pack.cardList = document.getElementById('shopCardList').value
-        .split(/[,\s]+/)
-        .map(s => parseInt(s, 10))
-        .filter(n => !Number.isNaN(n));
+    // Prefer in-memory cardList; fall back to hidden textarea
+    if (!Array.isArray(pack.cardList)) {
+        pack.cardList = document.getElementById('shopCardList').value
+            .split(/[,\s]+/)
+            .map(s => parseInt(s, 10))
+            .filter(n => !Number.isNaN(n));
+    }
 }
 
 function renderShopOdds() {

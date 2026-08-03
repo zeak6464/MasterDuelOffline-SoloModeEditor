@@ -95,7 +95,7 @@ class EditorRequestHandler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, HEAD')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, *')
         self.send_header('Access-Control-Max-Age', '86400')
         self.send_header('Cache-Control', 'no-store')
@@ -105,13 +105,57 @@ class EditorRequestHandler(SimpleHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
 
+    def handle_one_request(self):
+        try:
+            super().handle_one_request()
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            # Browser often aborts video/image probes; keep the console clean.
+            pass
+
+    def copyfile(self, source, outputfile):
+        try:
+            super().copyfile(source, outputfile)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            pass
+
+    def log_error(self, format, *args):
+        msg = format % args if args else str(format)
+        # Don't dump full tracebacks for routine missing preview files / aborted clients
+        if 'Broken pipe' in msg or 'ConnectionAbortedError' in msg or 'Connection reset' in msg:
+            return
+        if 'FileNotFoundError' in msg and ('.mp4' in msg or 'PackNames.json' in msg):
+            return
+        SimpleHTTPRequestHandler.log_error(self, format, *args)
+
+    def send_error(self, code, message=None, explain=None):
+        try:
+            # Short 404 body so aborted video probes don't explode mid-write
+            if code == 404:
+                body = b'Not Found'
+                self.send_response(404, message)
+                self.send_header('Content-Type', 'text/plain; charset=utf-8')
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Connection', 'close')
+                self.end_headers()
+                try:
+                    self.wfile.write(body)
+                except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                    pass
+                return
+            super().send_error(code, message, explain)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            pass
+
     def _send_json(self, code, payload):
         body = json.dumps(payload).encode('utf-8')
-        self.send_response(code)
-        self.send_header('Content-Type', 'application/json; charset=utf-8')
-        self.send_header('Content-Length', str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(code)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            pass
 
     def _read_json_body(self):
         length = int(self.headers.get('Content-Length', '0'))
@@ -128,6 +172,8 @@ class EditorRequestHandler(SimpleHTTPRequestHandler):
                 self.handle_list()
             elif path == '/api/load':
                 self.handle_load()
+            elif path == '/api/exists':
+                self.handle_exists()
             elif path == '/api/backups':
                 self.handle_backups()
             elif path == '/api/restore':
@@ -136,6 +182,8 @@ class EditorRequestHandler(SimpleHTTPRequestHandler):
                 self.handle_diff()
             else:
                 self._send_json(404, {'ok': False, 'error': 'Unknown API route'})
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            pass
         except Exception as e:
             traceback.print_exc()
             self._send_json(500, {'ok': False, 'error': str(e)})
@@ -202,6 +250,15 @@ class EditorRequestHandler(SimpleHTTPRequestHandler):
                 pass
         text = open(full, encoding='utf-8').read()
         self._send_json(200, {'ok': True, 'text': text})
+
+    def handle_exists(self):
+        data = self._read_json_body()
+        rel = data.get('path')
+        if not rel:
+            self._send_json(400, {'ok': False, 'error': 'path is required'})
+            return
+        full = safe_join(self.data_dir, rel)
+        self._send_json(200, {'ok': True, 'exists': os.path.isfile(full), 'path': rel})
 
     def handle_backups(self):
         backups = []
