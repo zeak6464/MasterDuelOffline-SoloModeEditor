@@ -1,26 +1,95 @@
 # MasterDuelOffline-SoloModeEditor
 
-MasterDuelOffline-SoloModeEditor is a tool designed to modify the Solo Mode of Yu-Gi-Oh! Master Duel's offline version. This editor allows users to customize and enhance their single-player experience by editing various aspects of the Solo Mode.
-
-## Features
-
-- **Solo Mode Customization**: Modify existing campaigns or create new ones to enrich your offline gameplay.
-- **User-Friendly Interface**: An intuitive HTML-based interface for easy navigation and editing.
-- **Lightweight**: Minimal dependencies ensure a smooth and efficient experience.
+Browser-based editor for YgoMaster (offline Yu-Gi-Oh! Master Duel) Data files.
+Edit Solo Mode, decks, shop, settings, banlists, card pool, and more — then save
+directly back into your Data folder.
 
 ## Requirements
 
-- **Python 3.x**: Ensure Python is installed on your system. You can download it from the [official website](https://www.python.org/).
+- Python 3.x (https://www.python.org/)
+- A working YgoMaster install with a Data folder (Solo.json, etc.)
+- Internet access for card images / names (YGOPRODeck API)
 
-## Installation
+## Quick Start
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/zeak6464/MasterDuelOffline-SoloModeEditor.git
-   cd MasterDuelOffline-SoloModeEditor
+1. Keep this folder next to your YgoMaster Data folder, e.g.:
 
-2. Put Server & Html in the Data Folder of the Mod.
+   YgoMaster\
+     Data\
+     MasterDuelOffline-SoloModeEditor-main\
+       server.py
+       solo_editor.html
+       editor_app.js
+       editor_tools.js
 
-3. Edit Server.py with your game info 
-# Change to the Yu-Gi-Oh! Master Duel data directory
-data_dir = r'C:\Program Files (x86)\Steam\steamapps\common\Yu-Gi-Oh!  Master Duel\YgoMaster-Mod\Data'
+2. Run the server:
+
+   python server.py
+
+   The server auto-finds Data (looks in ..\Data and common install paths)
+   and copies the editor HTML/JS into Data so they can be served.
+
+3. Open in your browser:
+
+   http://localhost:8000/solo_editor.html
+
+4. Press Ctrl+C in the terminal to stop the server.
+
+## Features
+
+### Solo Mode
+- Gates, Chapters, Unlocks
+- Solo Duels (settings + visual Deck Editor)
+- Movies
+- Campaign tools: clone gate, bulk rewards, import YDK into a chapter
+
+### Deck tools
+- Deck Editor (player/CPU main/extra/side, card search + preview)
+- Deck Browser (Solo Duels / Structure Decks) with YDK export
+- Structure Deck editor
+
+### Game data
+- Settings (unlock-all toggles, gems, deck slots, craft costs)
+- Custom Duel (LP, hand, CPU, mats, sleeves, BGM, deck paths)
+- Shop + pack odds (prices, card lists, rarity rates)
+- Card Pool (CardList.json + CardCraftableList.json) with card-grid UI
+- Banlist editor (Regulation.json / Regulation.d) with card-grid UI
+- Topics / home screen (Topics/YgoMaster.json)
+- Cosmetics / BGM pickers (from ItemID.json)
+
+### Utilities
+- Save in place over HTTP (writes into Data, creates .bak backups)
+- Backups tab: diff and restore .bak files
+- Global search (gates, chapters, packs, cards)
+- Validation (missing duels/movies, broken links, unknown card IDs)
+
+## Saving
+
+Most Save buttons write directly to files under Data and create a .bak copy
+of the previous file. If the server save fails, the editor falls back to
+downloading the JSON.
+
+Example paths written:
+- Data\Solo.json
+- Data\SoloDuels\<chapterId>.json
+- Data\Settings.json
+- Data\Shop.json / ShopPackOdds.json
+- Data\CardList.json / CardCraftableList.json
+- Data\Regulation.json or Data\Regulation.d\*.json
+- Data\StructureDecks\*.json
+- Data\Topics\YgoMaster.json
+- Data\CustomDuel.json
+
+## Notes
+
+- Card IDs in Master Duel / YgoMaster are game IDs (right-hand values in
+  Data\YdkIds.txt). YDK import/export converts via that mapping.
+- Settings.json / CustomDuel.json may lose // comments when saved (still valid).
+- After updating editor files, restart server.py (or copy HTML/JS into Data)
+  and hard-refresh the browser (Ctrl+F5).
+- Default port is 8000. Close anything else using that port first.
+
+## Original project
+
+Based on: https://github.com/zeak6464/MasterDuelOffline-SoloModeEditor
+Extended locally for full YgoMaster Data editing.

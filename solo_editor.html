@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yu-Gi-Oh! Master Duel Solo Mode Editor</title>
+    <title>Yu-Gi-Oh! Master Duel Offline Editor</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -342,15 +342,108 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .tab-container {
+            flex-wrap: wrap;
+        }
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: normal;
+            margin-bottom: 8px;
+        }
+        .check-row input {
+            width: auto;
+        }
+        .panel-box {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+        .form-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .form-inline input, .form-inline select {
+            width: auto;
+            min-width: 80px;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .toast {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: #222;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 6px;
+            z-index: 2000;
+            display: none;
+            max-width: 420px;
+        }
+        .toast.success { background: #1f7a3a; }
+        .toast.error { background: #a12622; }
+        textarea.wide {
+            width: 100%;
+            min-height: 80px;
+            box-sizing: border-box;
+        }
+        .button-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 6px 8px;
+            vertical-align: top;
+            text-align: left;
+        }
+        .data-table th {
+            background: #eee;
+        }
+        #backupDiff {
+            width: 100%;
+            min-height: 220px;
+            background: #1a1a1a;
+            color: #d6d6d6;
+            padding: 10px;
+            overflow: auto;
+            white-space: pre;
+            font-family: Consolas, monospace;
+            font-size: 12px;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
-    <h1>Yu-Gi-Oh! Master Duel Solo Mode Editor</h1>
+    <h1>Yu-Gi-Oh! Master Duel Offline Editor</h1>
     
     <div class="status-bar">
         <div class="status-item" id="soloStatus">Solo.json: Not Loaded</div>
         <div class="status-item" id="npcStatus">SoloNpcDeckIds.json: Not Loaded</div>
         <div class="status-item" id="cardStatus">CardList.json: Not Loaded</div>
+        <div class="status-item" id="settingsStatus">Settings.json: Not Loaded</div>
+        <div class="status-item" id="shopStatus">Shop.json: Not Loaded</div>
+        <div class="status-item" id="customDuelStatus">CustomDuel.json: Not Loaded</div>
+        <div class="status-item" id="banlistStatus">Banlist: Not Loaded</div>
+        <div class="status-item" id="cardPoolStatus">Card pool: Not Loaded</div>
+        <div class="status-item" id="topicsStatus">Topics: Not Loaded</div>
         <div class="status-item" id="workingDir">Working Directory: Loading...</div>
         <div class="status-item"><button onclick="saveData()">Save Solo.json</button></div>
     </div>
@@ -363,6 +456,20 @@
         <button class="tab" onclick="showSection('duels')">Solo Duels</button>
         <button class="tab" onclick="showSection('movies')">Movies</button>
         <button class="tab" onclick="showSection('duelJson')">Deck Editor</button>
+        <button class="tab" onclick="showSection('settings')">Settings</button>
+        <button class="tab" onclick="showSection('customDuel')">Custom Duel</button>
+        <button class="tab" onclick="showSection('shop')">Shop</button>
+        <button class="tab" onclick="showSection('structure')">Structure Decks</button>
+        <button class="tab" onclick="showSection('campaign')">Campaign Tools</button>
+        <button class="tab" onclick="showSection('banlist')">Banlist</button>
+        <button class="tab" onclick="showSection('deckBrowser')">Deck Browser</button>
+        <button class="tab" onclick="showSection('rewards')">Rewards</button>
+        <button class="tab" onclick="showSection('cardPool')">Card Pool</button>
+        <button class="tab" onclick="showSection('cosmetics')">Cosmetics</button>
+        <button class="tab" onclick="showSection('backups')">Backups</button>
+        <button class="tab" onclick="showSection('search')">Search</button>
+        <button class="tab" onclick="showSection('validation')">Validation</button>
+        <button class="tab" onclick="showSection('topics')">Topics</button>
     </div>
 
     <div class="content">
@@ -740,6 +847,397 @@
             <div id="jsonError" class="error"></div>
             <button onclick="saveDuelJson()">Save Duel JSON</button>
         </div>
+
+        <!-- Settings -->
+        <div id="settings" class="section">
+            <h2>Settings</h2>
+            <div class="panel-box">
+                <h3>Quick Toggles</h3>
+                <div id="settingsToggles"></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Default Gems</label>
+                    <input type="number" id="settingsDefaultGems">
+                </div>
+                <div class="form-group">
+                    <label>Deck Slots</label>
+                    <input type="number" id="settingsDeckSlots">
+                </div>
+                <div class="form-group">
+                    <label>Bookmark Limit</label>
+                    <input type="number" id="settingsBookmarkLimit">
+                </div>
+            </div>
+            <div class="panel-box">
+                <h3>Craft Costs (Normal style)</h3>
+                <div class="form-inline">
+                    N <input id="craftN" type="number">
+                    R <input id="craftR" type="number">
+                    SR <input id="craftSR" type="number">
+                    UR <input id="craftUR" type="number">
+                </div>
+            </div>
+            <div class="button-row">
+                <button onclick="loadSettingsEditor()">Reload</button>
+                <button onclick="saveSettingsEditor()">Save Settings.json</button>
+            </div>
+        </div>
+
+        <!-- Custom Duel -->
+        <div id="customDuel" class="section">
+            <h2>Custom Duel</h2>
+            <div class="grid-2">
+                <div class="form-group"><label>Player Name</label><input id="cdPlayerName"></div>
+                <div class="form-group"><label>CPU Name</label><input id="cdCpuName"></div>
+                <div class="form-group"><label>Player LP (-1 default)</label><input id="cdLifeP" type="number"></div>
+                <div class="form-group"><label>CPU LP</label><input id="cdLifeC" type="number"></div>
+                <div class="form-group"><label>Player Hand</label><input id="cdHandP" type="number"></div>
+                <div class="form-group"><label>CPU Hand</label><input id="cdHandC" type="number"></div>
+                <div class="form-group"><label>CPU Level</label><input id="cdCpu" type="number"></div>
+                <div class="form-group">
+                    <label>First Player</label>
+                    <select id="cdFirst">
+                        <option value="-1">Random</option>
+                        <option value="0">You</option>
+                        <option value="1">CPU</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Player Field</label><select id="cdMatP"></select></div>
+                <div class="form-group"><label>CPU Field</label><select id="cdMatC"></select></div>
+                <div class="form-group"><label>Player Sleeve</label><select id="cdSleeveP"></select></div>
+                <div class="form-group"><label>CPU Sleeve</label><select id="cdSleeveC"></select></div>
+                <div class="form-group"><label>Player Deck Path</label><input id="cdDeckP"></div>
+                <div class="form-group"><label>CPU Deck Path</label><input id="cdDeckC"></div>
+                <div class="form-group">
+                    <label>BGM Preset</label>
+                    <select id="cdBgmSelect" onchange="applyCdBgmSelect()"></select>
+                </div>
+                <div class="form-group"><label>BGMs (comma separated)</label><input id="cdBgm"></div>
+                <div class="form-group"><label>Target Chapter ID</label><input id="cdChapter" type="number"></div>
+            </div>
+            <div class="button-row">
+                <button onclick="loadCustomDuelEditor()">Reload</button>
+                <button onclick="saveCustomDuelEditor()">Save CustomDuel.json</button>
+            </div>
+        </div>
+
+        <!-- Shop -->
+        <div id="shop" class="section">
+            <h2>Shop / Pack Odds</h2>
+            <div class="panel-box">
+                <label class="check-row"><input type="checkbox" id="shopUnlockSecrets"> Unlock all secrets</label>
+                <label class="check-row"><input type="checkbox" id="shopNoDupes"> No duplicates per pack</label>
+                <label class="check-row"><input type="checkbox" id="shopAllInStandard"> Put all cards in standard pack</label>
+            </div>
+            <div class="form-group">
+                <label>Pack</label>
+                <select id="shopPackSelect" onchange="populateShopPackFields()"></select>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Cards per pack</label><input id="shopPackCards" type="number"></div>
+                <div class="form-group"><label>Single pull cost (gems)</label><input id="shopPriceSingle" type="number"></div>
+                <div class="form-group"><label>Multi pull cost (gems)</label><input id="shopPriceMulti" type="number"></div>
+            </div>
+            <div class="form-group">
+                <label>Pack cardList (game IDs, comma separated)</label>
+                <textarea class="wide" id="shopCardList"></textarea>
+            </div>
+            <div id="shopOddsEditor"></div>
+            <div class="button-row">
+                <button onclick="loadShopEditor()">Reload</button>
+                <button onclick="saveShopEditor()">Save Shop + Odds</button>
+            </div>
+        </div>
+
+        <!-- Structure Decks -->
+        <div id="structure" class="section">
+            <h2>Structure Deck Editor</h2>
+            <div class="form-group">
+                <label>Structure Deck</label>
+                <select id="structureSelect"></select>
+                <div class="button-row">
+                    <button onclick="loadStructureDeckList()">Refresh List</button>
+                    <button onclick="loadStructureDeck()">Load</button>
+                    <button onclick="saveStructureDeck()">Save</button>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Box ID</label><input id="sdBox" type="number"></div>
+                <div class="form-group"><label>Sleeve ID</label><input id="sdSleeve" type="number"></div>
+            </div>
+            <div class="form-group"><label>Focus Card IDs</label><input id="sdFocus"></div>
+            <div class="form-group">
+                <label>Add searched cards to</label>
+                <select id="sdAddTarget">
+                    <option value="m">Main</option>
+                    <option value="e">Extra</option>
+                </select>
+                <div class="help-text">Use the Deck Editor card search, then click a result while this tab is open.</div>
+            </div>
+            <div class="deck-section">
+                <h3>Main <span class="deck-count" id="sdMainCount">0 cards</span></h3>
+                <div class="card-grid" id="sdMain"></div>
+            </div>
+            <div class="deck-section">
+                <h3>Extra <span class="deck-count" id="sdExtraCount">0 cards</span></h3>
+                <div class="card-grid" id="sdExtra"></div>
+            </div>
+            <div class="form-group">
+                <label>Quick add by game ID</label>
+                <div class="form-inline">
+                    <input id="sdQuickId" type="number" placeholder="game card id">
+                    <button onclick="addCardToStructure(document.getElementById('sdQuickId').value, document.getElementById('sdAddTarget').value)">Add</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Campaign Tools -->
+        <div id="campaign" class="section">
+            <h2>Solo Campaign Tools</h2>
+            <div class="panel-box">
+                <h3>Clone Gate</h3>
+                <div class="form-inline">
+                    Source Gate <input id="cloneGateSource" type="number">
+                    New Gate <input id="cloneGateTarget" type="number">
+                    <button onclick="cloneGate()">Clone</button>
+                </div>
+                <div class="help-text">Copies gate, chapters, and SoloDuels files with remapped chapter IDs.</div>
+            </div>
+            <div class="panel-box">
+                <h3>Bulk Set Chapter Rewards</h3>
+                <div class="form-inline">
+                    Gate <input id="bulkGateId" type="number">
+                    Item Category <input id="bulkItemCat" value="1">
+                    Item ID <input id="bulkItemId" value="1">
+                    Amount <input id="bulkAmount" type="number" value="50">
+                    <button onclick="bulkSetRewards()">Apply + Save</button>
+                </div>
+                <div class="help-text">Category 1 / Item 1 is usually Gems.</div>
+            </div>
+            <div class="panel-box">
+                <h3>Import YDK into Chapter Duel</h3>
+                <div class="form-inline">
+                    Chapter ID <input id="ydkChapterId" type="number">
+                    Target
+                    <select id="ydkTarget">
+                        <option value="player">Player</option>
+                        <option value="cpu">CPU</option>
+                    </select>
+                    <input id="ydkFile" type="file" accept=".ydk,text/plain">
+                    <button onclick="importYdkToChapter()">Import + Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Banlist -->
+        <div id="banlist" class="section">
+            <h2>Banlist Editor</h2>
+            <div class="form-group">
+                <label>Regulation</label>
+                <select id="banlistSelect" onchange="loadSelectedBanlist()"></select>
+                <div class="button-row">
+                    <button onclick="loadBanlistEditor()">Refresh List</button>
+                    <button onclick="loadSelectedBanlist()">Load</button>
+                    <button onclick="saveBanlistEditor()">Save</button>
+                </div>
+            </div>
+            <div class="panel-box">
+                <h3>Create Custom Banlist</h3>
+                <div class="form-inline">
+                    ID <input id="newBanlistId" type="number" placeholder="9000">
+                    Name <input id="newBanlistName" placeholder="My Format">
+                    <button onclick="createCustomBanlist()">Create</button>
+                </div>
+            </div>
+
+            <div class="deck-editor">
+                <div class="card-preview" id="banlistPreview"></div>
+                <div class="deck-container">
+                    <div class="deck-toggle" style="margin-bottom: 10px;">
+                        <button id="banTargetA0" class="toggle-btn active" onclick="setBanlistTarget('a0')">Forbidden</button>
+                        <button id="banTargetA1" class="toggle-btn" onclick="setBanlistTarget('a1')">Limited</button>
+                        <button id="banTargetA2" class="toggle-btn" onclick="setBanlistTarget('a2')">Semi</button>
+                        <button id="banTargetA3" class="toggle-btn" onclick="setBanlistTarget('a3')">Unlimited</button>
+                    </div>
+                    <div class="search-section">
+                        <div class="search-container">
+                            <input type="text" class="search-input" id="banlistSearch" placeholder="Search cards..." oninput="searchBanlistCards()">
+                        </div>
+                        <div class="search-results" id="banlistSearchResults"></div>
+                    </div>
+                    <div class="deck-section">
+                        <h3>Forbidden <span class="deck-count" id="banA0Count">0 cards</span></h3>
+                        <div class="card-grid" id="banGridA0"></div>
+                    </div>
+                    <div class="deck-section">
+                        <h3>Limited <span class="deck-count" id="banA1Count">0 cards</span></h3>
+                        <div class="card-grid" id="banGridA1"></div>
+                    </div>
+                    <div class="deck-section">
+                        <h3>Semi-Limited <span class="deck-count" id="banA2Count">0 cards</span></h3>
+                        <div class="card-grid" id="banGridA2"></div>
+                    </div>
+                    <div class="deck-section">
+                        <h3>Unlimited <span class="deck-count" id="banA3Count">0 cards</span></h3>
+                        <div class="card-grid" id="banGridA3"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- hidden legacy fields kept for compatibility -->
+            <textarea id="banForbidden" style="display:none"></textarea>
+            <textarea id="banLimited" style="display:none"></textarea>
+            <textarea id="banSemi" style="display:none"></textarea>
+            <textarea id="banUnlimited" style="display:none"></textarea>
+        </div>
+
+        <!-- Deck Browser -->
+        <div id="deckBrowser" class="section">
+            <h2>Deck Browser / YDK Export</h2>
+            <div class="form-group">
+                <label>Deck Source</label>
+                <div class="form-inline">
+                    <select id="deckBrowserType" onchange="refreshDeckBrowserList()">
+                        <option value="solo">Solo Duels</option>
+                        <option value="structure">Structure Decks</option>
+                    </select>
+                    <select id="deckBrowserSelect"></select>
+                    <select id="deckBrowserSide">
+                        <option value="0">Player / Deck 0</option>
+                        <option value="1">CPU / Deck 1</option>
+                    </select>
+                    <button onclick="loadDeckBrowser()">Load</button>
+                    <button onclick="exportBrowserYdk()">Export YDK</button>
+                </div>
+            </div>
+
+            <div class="deck-editor">
+                <div class="card-preview" id="deckBrowserPreview"></div>
+                <div class="deck-container">
+                    <div class="search-section">
+                        <div class="search-container">
+                            <input type="text" class="search-input" id="deckBrowserSearch" placeholder="Filter loaded deck..." oninput="renderDeckBrowser()">
+                        </div>
+                    </div>
+                    <div class="deck-section">
+                        <h3>Main Deck <span class="deck-count" id="browserMainCount">0 cards</span></h3>
+                        <div class="card-grid" id="browserMainDeck"></div>
+                    </div>
+                    <div class="deck-section">
+                        <h3>Extra Deck <span class="deck-count" id="browserExtraCount">0 cards</span></h3>
+                        <div class="card-grid" id="browserExtraDeck"></div>
+                    </div>
+                    <div class="deck-section">
+                        <h3>Side Deck <span class="deck-count" id="browserSideCount">0 cards</span></h3>
+                        <div class="card-grid" id="browserSideDeck"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rewards -->
+        <div id="rewards" class="section">
+            <h2>Reward Visualizer</h2>
+            <div class="form-inline">
+                Gate filter <input id="rewardGateFilter" placeholder="optional gate id">
+                <button onclick="renderRewardVisualizer()">Refresh</button>
+            </div>
+            <div id="rewardView"></div>
+        </div>
+
+        <!-- Card Pool -->
+        <div id="cardPool" class="section">
+            <h2>Card Pool Tools</h2>
+            <div class="button-row">
+                <button onclick="loadCardPoolEditor()">Reload</button>
+                <button onclick="saveCardPool()">Save CardList + Craftable</button>
+            </div>
+            <div class="form-inline" style="margin-bottom: 12px;">
+                Grant rarity/style <input id="grantRarity" type="number" value="1" min="1" max="4" style="width:70px">
+                <label class="check-row"><input type="checkbox" id="grantCraftable" checked> Also craftable</label>
+            </div>
+
+            <div class="deck-editor">
+                <div class="card-preview" id="cardPoolPreview"></div>
+                <div class="deck-container">
+                    <div class="deck-toggle" style="margin-bottom: 10px;">
+                        <button id="poolViewOwned" class="toggle-btn active" onclick="setCardPoolView('owned')">Owned</button>
+                        <button id="poolViewCraftable" class="toggle-btn" onclick="setCardPoolView('craftable')">Craftable</button>
+                    </div>
+                    <div class="search-section">
+                        <div class="search-container">
+                            <input type="text" class="search-input" id="cardPoolSearch" placeholder="Search cards to add..." oninput="searchCardPoolCards()">
+                        </div>
+                        <div class="search-results" id="cardPoolSearchResults"></div>
+                    </div>
+                    <div class="deck-section">
+                        <h3 id="cardPoolGridTitle">Owned Cards <span class="deck-count" id="cardPoolCount">0 cards</span></h3>
+                        <div class="card-grid" id="cardPoolGrid"></div>
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" id="grantIds" value="">
+        </div>
+
+        <!-- Cosmetics -->
+        <div id="cosmetics" class="section">
+            <h2>BGM / Cosmetics Picker</h2>
+            <div class="help-text">Dropdowns on Solo Duels and Custom Duel are filled from ItemID.json. Samples below:</div>
+            <div class="button-row">
+                <button onclick="enhanceCosmeticsPickers()">Refresh Pickers</button>
+            </div>
+            <div id="cosmeticsLists"></div>
+        </div>
+
+        <!-- Backups -->
+        <div id="backups" class="section">
+            <h2>Backups / Diff / Restore</h2>
+            <div class="button-row">
+                <button onclick="refreshBackups()">Refresh</button>
+            </div>
+            <div id="backupList"></div>
+            <h3>Diff</h3>
+            <pre id="backupDiff">(select Diff on a backup)</pre>
+        </div>
+
+        <!-- Search -->
+        <div id="search" class="section">
+            <h2>Search Everything</h2>
+            <div class="form-inline">
+                <input id="globalSearchInput" placeholder="gate, chapter, npc, pack, card..." style="min-width:280px"
+                    onkeydown="if(event.key==='Enter') runGlobalSearch()">
+                <button onclick="runGlobalSearch()">Search</button>
+            </div>
+            <div id="globalSearchResults"></div>
+        </div>
+
+        <!-- Validation -->
+        <div id="validation" class="section">
+            <h2>Validation</h2>
+            <div class="help-text">Checks missing duel/movie files, broken chapter links, missing rewards, unknown card IDs.</div>
+            <div class="button-row">
+                <button onclick="runValidation()">Run Validation</button>
+            </div>
+            <div id="validationResults"></div>
+        </div>
+
+        <!-- Topics -->
+        <div id="topics" class="section">
+            <h2>Topics / Home Screen</h2>
+            <div class="grid-2">
+                <div class="form-group"><label>Banner Title</label><input id="topicsBannerTitle"></div>
+                <div class="form-group"><label>Banner Image Path</label><input id="topicsBannerImage"></div>
+            </div>
+            <div class="form-group">
+                <label>Contents (blocks separated by ---)</label>
+                <textarea class="wide" id="topicsContents" style="min-height:280px"></textarea>
+                <div class="help-text">Each block starts with [H1] or [Text] on the first line.</div>
+            </div>
+            <div class="button-row">
+                <button onclick="loadTopicsEditor()">Reload</button>
+                <button onclick="saveTopicsEditor()">Save Topics/YgoMaster.json</button>
+            </div>
+        </div>
     </div>
 
     <div id="loadingIndicator" class="loading" style="display: none;">
@@ -881,6 +1379,10 @@
                 populateDuelChapterSelect();
                 populateMovieChapterSelect();
                 updateFileBrowser();
+
+                if (typeof initExtendedEditors === 'function') {
+                    await initExtendedEditors();
+                }
             } catch (error) {
                 console.error('Initialization error:', error);
                 alert('Error during initialization. Please check the console for details.');
@@ -1055,9 +1557,12 @@
             });
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
+                if (tab.getAttribute('onclick') && tab.getAttribute('onclick').includes(`'${sectionId}'`)) {
+                    tab.classList.add('active');
+                }
             });
-            document.getElementById(sectionId).classList.add('active');
-            event.target.classList.add('active');
+            const section = document.getElementById(sectionId);
+            if (section) section.classList.add('active');
         }
 
         function addGate() {
@@ -1234,17 +1739,21 @@
             
         }
 
-        function saveData() {
-            const dataStr = JSON.stringify(soloData, null, 2);
-            const blob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'Solo.json';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+        async function saveData() {
+            if (typeof saveToServer === 'function') {
+                await saveToServer('Solo.json', soloData);
+            } else {
+                const dataStr = JSON.stringify(soloData, null, 2);
+                const blob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'Solo.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
         }
 
         function saveDuel() {
@@ -1351,16 +1860,20 @@
                 duelData.res[0][1].Duel.Deck = currentDuelJson.res[0][1].Duel.Deck;
             }
 
-            const dataStr = JSON.stringify(duelData, null, 2);
-            const blob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${chapterId}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            if (typeof saveToServer === 'function') {
+                saveToServer(`SoloDuels/${chapterId}.json`, duelData);
+            } else {
+                const dataStr = JSON.stringify(duelData, null, 2);
+                const blob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${chapterId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
         }
 
         // Helper function to generate random duel string
@@ -1596,7 +2109,10 @@
                     </div>
                 `;
                 div.onmouseover = () => showCardPreview(result.gameId);
-                div.onclick = () => addCard(currentDeckType, result.gameId);
+                div.onclick = () => {
+                    if (typeof addCardFromSearch === 'function') addCardFromSearch(result.gameId);
+                    else addCard(currentDeckType, result.gameId);
+                };
                 resultsList.appendChild(div);
             });
         }
@@ -1652,22 +2168,24 @@
             updateDeckLists(currentDuelJson);
         }
 
-        function saveDuelJson() {
+        async function saveDuelJson() {
             try {
                 const jsonText = document.getElementById('jsonEditor').value;
                 const data = JSON.parse(jsonText);
                 const chapterId = document.getElementById('duelJsonChapter').value;
-                
-                const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${chapterId}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
+                if (typeof saveToServer === 'function') {
+                    await saveToServer(`SoloDuels/${chapterId}.json`, data);
+                } else {
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${chapterId}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }
                 document.getElementById('jsonError').textContent = '';
             } catch (error) {
                 document.getElementById('jsonError').textContent = `Invalid JSON: ${error.message}`;
@@ -1678,10 +2196,11 @@
             const cardInfo = getCardInfo(gameId);
             if (!cardInfo) return;
 
-            const preview = document.querySelector('.card-preview');
+            const active = document.querySelector('.section.active');
+            const preview = (active && active.querySelector('.card-preview')) || document.querySelector('.card-preview');
             if (!preview) return;
 
-            const konamiId = ydkMapping[gameId];
+            const konamiId = ydkMapping[gameId] || ydkMapping[String(gameId)];
             if (!konamiId) return;
 
             // Format ATK/DEF if they exist
@@ -1770,18 +2289,21 @@
                 }
             };
 
-            const dataStr = JSON.stringify(movieData, null, 2);
-            const blob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${chapterId}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
             movieFiles[chapterId] = movieData;
+            if (typeof saveToServer === 'function') {
+                saveToServer(`SoloMovies/${chapterId}.json`, movieData);
+            } else {
+                const dataStr = JSON.stringify(movieData, null, 2);
+                const blob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${chapterId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
             updateMovieList();
         }
 
@@ -2092,5 +2614,7 @@
                 });
         }
     </script>
+    <script src="editor_app.js"></script>
+    <script src="editor_tools.js"></script>
 </body>
 </html> 
